@@ -3,6 +3,7 @@ from datetime import date, timedelta
 import pandas as pd
 from decimal import Decimal
 
+# Função para obter a taxa Selic anual mais recente
 def recente_selic_anual():
     url = 'https://api.bcb.gov.br/dados/serie/bcdata.sgs.1178/dados?formato=csv'
     selic = pd.read_csv(url, sep=';')
@@ -14,6 +15,7 @@ def recente_selic_anual():
 # Carrega o DataFrame com informações de investimentos
 metricas_info = pd.read_excel(r'metricas_investimento.xlsx')
 
+# Função para calcular o valor futuro do investimento
 def valor_futuro(taxa, n_periodos, pagamento, valor_presente):
     """Calcula o valor futuro do investimento."""
     try:
@@ -21,6 +23,7 @@ def valor_futuro(taxa, n_periodos, pagamento, valor_presente):
     except ZeroDivisionError:
         return 0
 
+# Função para determinar a alíquota de imposto de renda com base no prazo
 def aliquota_imposto(prazo_dias):
     """Calcula a alíquota de imposto de renda com base no prazo do investimento."""
     if prazo_dias < 181:
@@ -33,9 +36,17 @@ def aliquota_imposto(prazo_dias):
         return Decimal('0.15')   # 15% de imposto
 
 def main(page: ft.Page):
-    t = ft.Text()
+    page.title = "Simulador de Investimentos"
+    page.theme_mode = ft.ThemeMode.LIGHT
+
+    # Definir tema de cores
+    page.theme = ft.Theme(
+        primary_color=ft.colors.BLUE_ACCENT,
+    )
+
+    # Informações básicas
     data_hoje = date.today()
-    hoje = ft.Text(f'Dia atual: {data_hoje.strftime("%d/%m/%Y")}')
+    hoje = ft.Text(f'Data Atual: {data_hoje.strftime("%d/%m/%Y")}', size=16, weight=ft.FontWeight.BOLD)
 
     # Função de dropdown para selecionar o investimento
     def dropdown_invest(e):
@@ -51,7 +62,7 @@ def main(page: ft.Page):
 
         selected_prazo = int(dd_prazo.value.split()[0])
         prazo_final = data_hoje + timedelta(days=selected_prazo)
-        t.value = f"Data final: {prazo_final.strftime('%d/%m/%Y')}"
+        t_data_final.value = f"Data final do investimento: {prazo_final.strftime('%d/%m/%Y')}"
         page.update()
 
     # Função para capturar o valor numérico do campo de valor investido
@@ -63,9 +74,12 @@ def main(page: ft.Page):
 
     # Campo para inserção do valor a ser investido
     valor = ft.TextField(
-        label='Valor a Investir',
+        label='Valor a Investir (R$)',
         on_change=valor_,
-        input_filter=ft.InputFilter(allow=True, regex_string=r"^[0-9]*$", replacement_string="")
+        input_filter=ft.InputFilter(allow=True, regex_string=r"^[0-9]*$", replacement_string=""),
+        width=250,
+        text_align=ft.TextAlign.CENTER,
+        filled=True
     )
 
     # Função para capturar a taxa do investimento
@@ -102,7 +116,13 @@ def main(page: ft.Page):
             valor_liquido = valor_bruto * (1 - aliquota)
 
             # Exibe o resultado final
-            r.value = f"Resultado Final:\nValor Futuro: R$ {vf:.2f}\nValor Bruto: R$ {valor_bruto:.2f}\nValor Líquido: R$ {valor_liquido:.2f} (alíquota: {aliquota * 100}%)"
+            r.value = (
+                f"Simulação Completa:\n\n"
+                f"Valor Futuro: R$ {vf:.2f}\n"
+                f"Valor Bruto: R$ {valor_bruto:.2f}\n"
+                f"Valor Líquido: R$ {valor_liquido:.2f}\n"
+                f"Alíquota de IR: {aliquota * 100}%"
+            )
         except Exception as ex:
             r.value = f"Erro no cálculo: {ex}"
 
@@ -110,18 +130,48 @@ def main(page: ft.Page):
 
     # Dropdowns e botão para interação
     dd_invest = ft.Dropdown(
+        label="Escolha o Investimento",
         on_change=dropdown_invest,
         options=[ft.dropdown.Option(invest) for invest in metricas_info['Investimento'].unique()],
-        width=200
+        width=250,
+        filled=True
     )
 
-    dd_prazo = ft.Dropdown(width=200, on_change=dropdown_prazo)
+    dd_prazo = ft.Dropdown(
+        label="Prazo (dias)",
+        width=250,
+        on_change=dropdown_prazo,
+        filled=True
+    )
 
-    btn_calcular = ft.ElevatedButton("Calcular", on_click=calcular)
+    # Botão para calcular
+    btn_calcular = ft.ElevatedButton(
+        "Calcular Simulação",
+        on_click=calcular,
+        width=200,
+        color=ft.colors.WHITE,
+        bgcolor=ft.colors.BLUE_ACCENT,
+    )
 
-    r = ft.Text()
+    t_data_final = ft.Text()
 
-    # Adiciona os elementos na página
-    page.add(hoje, dd_invest, dd_prazo, t, valor, v, btn_calcular, r)
+    # Resultados
+    r = ft.Text(
+        size=16,
+        color=ft.colors.BLUE_GREY_900,
+        weight=ft.FontWeight.BOLD
+    )
+
+    # Layout principal
+    page.add(
+        hoje,
+        dd_invest,
+        dd_prazo,
+        t_data_final,
+        valor,
+        btn_calcular,
+        v,
+        r
+    )
 
 ft.app(main)
